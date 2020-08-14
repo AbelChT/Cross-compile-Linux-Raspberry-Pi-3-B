@@ -1,3 +1,6 @@
+# Introduction
+The aims of this proyect is to create a basic linux system on the Raspberry Pi 3 Model B from scratch.
+
 # Prerequisites
 Ubuntu:
 ```bash
