@@ -69,19 +69,19 @@ function step_2() {
     make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC Image modules dtbs -C $BUILD_DIR/linux/
 
     # Copy the device trees to the temporal file system
-    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC INSTALL_MOD_PATH=$RPI_FILE_TREE/rootfs modules_install -C $BUILD_DIR/linux/
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC INSTALL_MOD_PATH=$RPI_FILE_TREE_DIR/rootfs modules_install -C $BUILD_DIR/linux/
 
     # Copy kernel
     # Copy the kernel image
-    cp workspace/build/linux/arch/arm64/boot/Image $RPI_FILE_TREE/boot/kernel8.img
+    cp workspace/build/linux/arch/arm64/boot/Image $RPI_FILE_TREE_DIR/boot/kernel8.img
 
     # Copy the specific device trees to the temporal file system
-    cp workspace/build/linux/arch/arm64/boot/dts/broadcom/bcm2710-rpi-3-b.dtb $RPI_FILE_TREE/boot
-    cp workspace/build/linux/arch/arm64/boot/dts/broadcom/bcm2837-rpi-3-b.dtb $RPI_FILE_TREE/boot
+    cp workspace/build/linux/arch/arm64/boot/dts/broadcom/bcm2710-rpi-3-b.dtb $RPI_FILE_TREE_DIR/boot
+    cp workspace/build/linux/arch/arm64/boot/dts/broadcom/bcm2837-rpi-3-b.dtb $RPI_FILE_TREE_DIR/boot
 
     # Copy the common device trees to the temporal file system
-    mkdir $RPI_FILE_TREE/boot/overlays
-    cp workspace/build/linux/arch/arm64/boot/dts/overlays/*.dtb* $RPI_FILE_TREE/boot/overlays
+    mkdir $RPI_FILE_TREE_DIR/boot/overlays
+    cp workspace/build/linux/arch/arm64/boot/dts/overlays/*.dtb* $RPI_FILE_TREE_DIR/boot/overlays
 }
 
 # Step 3
@@ -93,12 +93,12 @@ function step_3() {
     git clone --depth 1 -b stable https://github.com/raspberrypi/firmware/ $SOURCES_DIR/firmware
 
     # Copy bootloader
-    cp workspace/sources/firmware/boot/bootcode.bin $RPI_FILE_TREE/boot
-    cp workspace/sources/firmware/boot/fixup.dat $RPI_FILE_TREE/boot
-    cp workspace/sources/firmware/boot/start.elf $RPI_FILE_TREE/boot
+    cp workspace/sources/firmware/boot/bootcode.bin $RPI_FILE_TREE_DIR/boot
+    cp workspace/sources/firmware/boot/fixup.dat $RPI_FILE_TREE_DIR/boot
+    cp workspace/sources/firmware/boot/start.elf $RPI_FILE_TREE_DIR/boot
 
     # Create configuration files
-    cat >$RPI_FILE_TREE/boot/config.txt <<"EOF"
+    cat >$RPI_FILE_TREE_DIR/boot/config.txt <<"EOF"
 # uncomment this if your display has a black border of unused pixels visible
 # and your display can output without overscan
 disable_overscan=1
@@ -113,7 +113,7 @@ kernel=kernel8.img
 arm_64bit=1
 EOF
 
-    cat >$RPI_FILE_TREE/boot/cmdline.txt <<"EOF"
+    cat >$RPI_FILE_TREE_DIR/boot/cmdline.txt <<"EOF"
 console=ttyAMA0,115200 console=tty1 root=PARTUUID=4dae6649-02 rootfstype=ext4 rootwait
 EOF
 }
