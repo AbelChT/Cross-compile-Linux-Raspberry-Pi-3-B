@@ -1,0 +1,7 @@
+wget -O workspace/sources/busybox-1.31.1.tar.bz2 https://busybox.net/downloads/busybox-1.31.1.tar.bz2
+tar -xvjf workspace/sources/busybox-1.31.1.tar.bz2 -C workspace/sources/
+
+make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_LINUX_CC defconfig -C workspace/sources/busybox-1.31.1/
+make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_LINUX_CC install -C workspace/sources/busybox-1.31.1/
+
+sudo cp -a -r workspace/sources/busybox-1.31.1/_install/* /media/abel/rootfs
