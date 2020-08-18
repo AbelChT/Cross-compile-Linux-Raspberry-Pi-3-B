@@ -28,11 +28,18 @@ export ARCH64_LINUX_CC=aarch64-none-linux-gnu-
 # Compilation settings
 export NUM_CPUS=4
 
+# Rootfs UUID
+
+
+#
+# Configuration end
+#
+
 #
 # STEPS
 #
 # Total number of steps
-number_of_steps=4
+number_of_steps=5
 
 # Step 1
 ## In the first step, will produce a workspace directory tree
@@ -60,7 +67,7 @@ function step_2() {
     # Compile kernel
 
     # Clean kernel tree
-    make -j${NUM_CPUS} ARCH=arm64 mrproper -C $BUILD_DIR/linux/
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC mrproper -C $BUILD_DIR/linux/
 
     # Configure the kernel with specific RPi 3 configuration
     make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC bcmrpi3_defconfig -C $BUILD_DIR/linux/
@@ -113,8 +120,9 @@ kernel=kernel8.img
 arm_64bit=1
 EOF
 
+    # TODO: PARTUUID must be recognised and set the correct one
     cat >$RPI_FILE_TREE_DIR/boot/cmdline.txt <<"EOF"
-console=ttyAMA0,115200 console=tty1 root=PARTUUID=4dae6649-02 rootfstype=ext4 rootwait
+console=ttyAMA0,115200 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait
 EOF
 }
 
@@ -129,6 +137,36 @@ function step_4() {
     # Compile the binary as static because to keep it as simple as possible we wont include any
     # shared library (as glibc) in the final system
     ${ARCH64_LINUX_CC}g++ -static -o $RPI_FILE_TREE_DIR/rootfs/sbin/init init.cpp
+}
+
+# Step 5
+# Compile busybox
+function step_5() {
+    wget -O $SOURCES_DIR/busybox-1.31.1.tar.bz2 https://busybox.net/downloads/busybox-1.31.1.tar.bz2
+    tar -xvjf $SOURCES_DIR/busybox-1.31.1.tar.bz2 -C $BUILD_DIR/
+
+
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_LINUX_CC SYSROOT=$RPI_FILE_TREE_DIR/rootfs STATIC=y clean -C $BUILD_DIR/busybox-1.31.1/
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_LINUX_CC SYSROOT=$RPI_FILE_TREE_DIR/rootfs STATIC=y defconfig -C $BUILD_DIR/busybox-1.31.1/
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_LINUX_CC SYSROOT=$RPI_FILE_TREE_DIR/rootfs STATIC=y install -C $BUILD_DIR/busybox-1.31.1/
+
+    cp -a -r $BUILD_DIR/busybox-1.31.1/_install/* $RPI_FILE_TREE_DIR/rootfs
+}
+
+# Step 6
+# Compile GCLib
+function step_6() {
+    # Clean kernel tree
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC mrproper -C $BUILD_DIR/linux/
+
+    # Configure the kernel with specific RPi 3 configuration
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC bcmrpi3_defconfig -C $BUILD_DIR/linux/
+
+    # Make headers
+    make -j${NUM_CPUS} ARCH=arm64 CROSS_COMPILE=$ARCH64_ELF_CC headers -C $BUILD_DIR/linux/
+
+    # TODO: Continue
+
 }
 
 #

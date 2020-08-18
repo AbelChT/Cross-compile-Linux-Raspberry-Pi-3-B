@@ -41,19 +41,18 @@ mkdir -p ${WORKSPACE_DIR}/temp/{boot,rootfs}
 cp -a -r ${WORKSPACE_DIR}/rpi_file_tree/boot/* ${WORKSPACE_DIR}/temp/boot/
 cp -a -r ${WORKSPACE_DIR}/rpi_file_tree/rootfs/* ${WORKSPACE_DIR}/temp/rootfs/
 
-# Transfer device trees to root
-sudo chown -R root:root ${WORKSPACE_DIR}/temp/boot/
+# Transfer device trees to root (Only rootfs, because root is in a FAT partition)
 sudo chown -R root:root ${WORKSPACE_DIR}/temp/rootfs/
 
 # Mount SDCARD
 mkdir -p ${WORKSPACE_DIR}/mnt/boot/
 mkdir -p ${WORKSPACE_DIR}/mnt/rootfs/
 
-sudo mount -n /dev/${SDCARD_DEV}1 ${WORKSPACE_DIR}/mnt/boot/
-sudo mount -n /dev/${SDCARD_DEV}2 ${WORKSPACE_DIR}/mnt/rootfs/
+sudo mount -t vfat -o uid=1000,gid=1000 -n /dev/${SDCARD_DEV}1 ${WORKSPACE_DIR}/mnt/boot/
+sudo mount -t ext4 -n /dev/${SDCARD_DEV}2 ${WORKSPACE_DIR}/mnt/rootfs/
 
 # Copy all to SDCARD
-sudo cp -a -r ${WORKSPACE_DIR}/temp/boot/* ${WORKSPACE_DIR}/mnt/boot/
+cp -a -r ${WORKSPACE_DIR}/temp/boot/* ${WORKSPACE_DIR}/mnt/boot/
 sudo cp -a -r ${WORKSPACE_DIR}/temp/rootfs/* ${WORKSPACE_DIR}/mnt/rootfs/
 
 # Sync writes
