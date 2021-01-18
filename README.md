@@ -49,13 +49,26 @@ The second step is to format the SDCARD with two partitions.
 The first one with a size around 256 MB must be in formt vFAT.  
 The second one with the remaining space must be in format EXT4.  
 
+```bash
+# Change for your SDCARD dev
+export SDCARD_DEV=sdX
+
+# Umount mounted filesystems
+umount ${SDCARD_DEV}*
+
+# Create a new partition table on your device (it will delete everything in the sdcard)
+# TODO: Must be fixed
+# sudo parted --script ${SDCARD_DEV} \
+#     mklabel msdos \
+#     mkpart primary fat32 4194kB 250MiB \
+#     mkpart primary ext4 250MiB 100% \
+#     set 2 lba off
+```
+
 # Copy temp directory to the SDCARD
 ```bash
 # Change for your workspace dir
 export WORKSPACE_DIR=workspace
-
-# Change for your SDCARD dev
-export SDCARD_DEV=sdX
 
 # Create a temporal copy of the files to transfer
 mkdir -p ${WORKSPACE_DIR}/temp/{boot,rootfs}
