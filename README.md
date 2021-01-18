@@ -1,26 +1,47 @@
+__Work in progress__
+
 # Introduction
-The aims of this proyect is to create a basic linux system on the Raspberry Pi 3 Model B from scratch.
+This project aims to create a basic Linux system on the Raspberry Pi 3 Model B from scratch.
+
+It boots the Linux kernel (64 bits) and launches a binary that I use as init. The binary launched is generated from init.cpp file.
+
+This is a personal project that I use for learning purposes. Feel free to fork it if it fits your needs.
 
 # Prerequisites
 Ubuntu:
 ```bash
-sudo apt install git bc bison flex libssl-dev make libc6-dev libncurses5-dev
+$ sudo apt install git bc bison flex libssl-dev make libc6-dev libncurses5-dev
 ```
 
 Fedora:
 ```bash
-sudo dnf install git bc bison flex openssl-devel make glibc-devel ncurses-devel
+$ sudo dnf install git bc bison flex openssl-devel make glibc-devel ncurses-devel
 ```
 
-Booth:
-
-Download linaro toolchain for cross compiling from the official [ARM developers page](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a/downloads).  
+Then for booth distributions, you need to download linaro toolchain for cross compiling from the official [ARM developers page](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-a/downloads).  
 You must download **AArch64 GNU/Linux target (aarch64-none-linux-gnu)** and **AArch64 ELF bare-metal target (aarch64-none-elf)**.  
-Then, you must include the bin folder of them in the **PATH** variable.  
+
+```bash
+# Download and untar aarch64-none-linux-gnu in toolchain folder
+$ wget --directory-prefix=toolchain https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz
+$ mkdir toolchain/gcc-10-aarch64-none-linux-gnu
+$ tar -xvf toolchain/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu.tar.xz -C toolchain
+
+# Download and untar aarch64-none-elf in toolchain folder
+$ wget --directory-prefix=toolchain https://developer.arm.com/-/media/Files/downloads/gnu-a/10.2-2020.11/binrel/gcc-arm-10.2-2020.11-x86_64-aarch64-none-elf.tar.xz
+$ mkdir toolchain/gcc-10-aarch64-none-elf
+$ tar -xvf toolchain/gcc-arm-10.2-2020.11-x86_64-aarch64-none-elf.tar.xz -C toolchain
+```
+
+Then, you must include the bin folder of them in the **PATH** variable. 
+
+```bash
+export PATH=${PWD}/toolchain/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin:${PWD}/toolchain/gcc-arm-10.2-2020.11-x86_64-aarch64-none-elf/bin:${PATH}
+```
 
 # Create minimal distro in temp directory
 ```bash
-./create_basic_linux_hello_world.sh
+$ ./create_basic_linux_hello_world.sh
 ```
 
 # Format SDCARD

@@ -39,7 +39,7 @@ export NUM_CPUS=4
 # STEPS
 #
 # Total number of steps
-number_of_steps=5
+number_of_steps=4
 
 # Step 1
 ## In the first step, will produce a workspace directory tree
