@@ -1,5 +1,3 @@
-__Work in progress__
-
 # Introduction
 This project aims to create a basic Linux system on the Raspberry Pi 3 Model B from scratch.
 
@@ -54,21 +52,20 @@ The second one with the remaining space must be in format EXT4.
 export SDCARD_DEV=sdX
 
 # Umount mounted filesystems
-umount ${SDCARD_DEV}*
+umount /dev/${SDCARD_DEV}*
 
 # Create a new partition table on your device (it will delete everything in the sdcard)
-# TODO: Must be fixed
-# sudo parted --script ${SDCARD_DEV} \
-#     mklabel msdos \
-#     mkpart primary fat32 4194kB 250MiB \
-#     mkpart primary ext4 250MiB 100% \
-#     set 2 lba off
+sudo parted -a optimal -s /dev/${SDCARD_DEV} mklabel msdos mkpart primary fat32 4194kB 250MiB mkpart primary ext4 250MiB 100% set 2 lba off
+
+# Create file systems in the created partitions
+sudo mkfs.vfat /dev/${SDCARD_DEV}1
+sudo mkfs.ext4 /dev/${SDCARD_DEV}2
 ```
 
 # Copy temp directory to the SDCARD
 ```bash
 # Change for your workspace dir
-export WORKSPACE_DIR=workspace
+export WORKSPACE_DIR=${PWD}/workspace
 
 # Create a temporal copy of the files to transfer
 mkdir -p ${WORKSPACE_DIR}/temp/{boot,rootfs}
