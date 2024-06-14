@@ -1,6 +1,6 @@
 FROM ubuntu:20.04
 # Dependencies from central repo
-RUN apt-get update && apt-get install -y git bc bison flex libssl-dev make libc6-dev libncurses5-dev wget xz-utils python3 mtools
+RUN apt-get update && apt-get install -y git bc bison flex libssl-dev make libc6-dev libncurses5-dev wget xz-utils python3 mtools dosfstools
 
 # ARM compiler
 RUN mkdir /toolchain
