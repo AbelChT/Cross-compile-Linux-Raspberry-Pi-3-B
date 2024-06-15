@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 import os
 import logging
-import time
+import argparse
 import shutil
 
 # Environment variables set by dockerfile
@@ -148,6 +148,7 @@ def make_image(filesystem_boot_path: Path, filesystem_root_folder_path: Path, ou
 
     # Create image file
     logging.info("Create image file ...")
+    out_image_path.unlink(missing_ok=True)
     subprocess.run(
         ["fallocate", "-l", f"{filesystem_size_mb}MiB", out_image_path], check=True, text=True)
 
@@ -160,13 +161,15 @@ def make_image(filesystem_boot_path: Path, filesystem_root_folder_path: Path, ou
 
     # Create root fs partition
     logging.info("Create rootfs partition ...")
-    root_fs_image = f"{out_image_path}.rootfs.img"
+    root_fs_image = Path(f"{out_image_path}.rootfs.img")
+    root_fs_image.unlink(missing_ok=True)
     subprocess.run(["mke2fs",  "-L", "rootfs", "-N", "0", "-d", filesystem_root_folder_path, "-m", "5", "-r", "1",
                    "-t", "ext4", root_fs_image, f"{rootfs_partition_size_mb}M"], check=True, text=True)
 
     # Create boot partition
     logging.info("Create boot partition ...")
-    boot_image = f"{out_image_path}.boot.img"
+    boot_image = Path(f"{out_image_path}.boot.img")
+    boot_image.unlink(missing_ok=True)
     subprocess.run(["mkfs.vfat", "-F", "16", "-v", "-C", boot_image, str(
         boot_partition_size_mb*1024), "-n" "boot"], check=True, text=True)
     subprocess.run(["mcopy", "-i", boot_image] +
@@ -179,16 +182,53 @@ def make_image(filesystem_boot_path: Path, filesystem_root_folder_path: Path, ou
     subprocess.run(["dd", f"if={root_fs_image}", f"of={out_image_path}", "bs=1024",
                    f"seek={(boot_partition_size_mb + partition_table_size_mb) * 1024}"], check=True, text=True)
 
+    # Delete boot and rootfs partitions
+    root_fs_image.unlink()
+    boot_image.unlink()
 
-def main():
+
+def make_qemu_launcher(filesystem_path: Path, out_image_path: Path):
     """
-    Entry point
+    Make executable script to launch image through QEMU
+    """
+    logging.info("Creating QEMU launcher ...")
+    # We need to create an SD card file compatible with QEMU
+    qemu_image_name = "basic_system.qemu.img"
+    qemu_image_file = filesystem_path / qemu_image_name
+    qemu_image_file.unlink(missing_ok=True)
+    shutil.copyfile(out_image_path, qemu_image_file)
+    assert (qemu_image_file.stat().st_size < (1024 * 1024 * 512))
+
+    logging.info("Resizing image ...")
+    subprocess.run(["qemu-img", "resize", qemu_image_file,
+                   "512M"], check=True, text=True)
+
+    # File launch content
+    content = \
+        "#!/bin/bash\n" \
+        "DIR_NAME=$(dirname \"$0\")\n" \
+        "qemu-system-aarch64 " \
+        "-M raspi3b " \
+        "-cpu cortex-a53 "  \
+        "-append \"console=ttyAMA0,115200 console=tty0 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait\" " \
+        "-dtb ${DIR_NAME}/boot/bcm2710-rpi-3-b.dtb -kernel ${DIR_NAME}/boot/kernel8.img " \
+        "-sd ${DIR_NAME}/" + qemu_image_name + " " \
+        "-m 1G -smp 4 -serial stdio -display none"
+
+    qemu_launch_path = filesystem_path / "launch_qemu.sh"
+    qemu_launch_path.unlink(missing_ok=True)
+    with open(qemu_launch_path, "a", encoding="utf-8") as f:
+        f.writelines(content)
+
+    qemu_launch_path.chmod(0o700)
+
+
+def build_system(workspace_name: str, skip_build_boot_partition: bool, skip_build_userspace: bool):
+    """
+    Run different build steps
     """
     # Configure logger
     logging.basicConfig(level=logging.INFO)
-
-    # Create workspace folder
-    workspace_name = f"workspace_{time.time_ns()}"
 
     logging.info("Current workspace name: %s", workspace_name)
     current_file_dir = Path(__file__).parent.absolute()
@@ -212,28 +252,58 @@ def main():
     filesystem_root_folder_path = filesystem_folder_path / "rootfs"
     os.makedirs(filesystem_root_folder_path, exist_ok=True)
 
-    # Build kernel
-    kernel_path = clone_kernel(build_folder_path)
-    build_kernel(kernel_path, filesystem_root_folder_path)
-    copy_kernel_to_filesystem(kernel_path, filesystem_boot_folder_path)
+    if not skip_build_boot_partition:
+        # Build kernel
+        kernel_path = clone_kernel(build_folder_path)
+        build_kernel(kernel_path, filesystem_root_folder_path)
+        copy_kernel_to_filesystem(kernel_path, filesystem_boot_folder_path)
 
-    # Copy bootloader
-    bootloader_path = clone_bootleader(source_folder_path)
-    copy_bootloader_to_filesystem(
-        bootloader_path, filesystem_boot_folder_path)
+        # Copy bootloader
+        bootloader_path = clone_bootleader(source_folder_path)
+        copy_bootloader_to_filesystem(
+            bootloader_path, filesystem_boot_folder_path)
 
-    # Copy boot configuration
-    copy_configuration_to_filesystem(filesystem_boot_folder_path)
+        # Copy boot configuration
+        copy_configuration_to_filesystem(filesystem_boot_folder_path)
 
-    # Build simple init
-    src_dir = current_file_dir / ".." / "src"
-    build_simple_init_and_copy_to_filesystem(
-        filesystem_root_folder_path, src_dir)
+    if not skip_build_userspace:
+        # Build simple init
+        src_dir = current_file_dir / ".." / "src"
+        build_simple_init_and_copy_to_filesystem(
+            filesystem_root_folder_path, src_dir)
 
     # Make ISO image
-    image_path = filesystem_folder_path / "basic_system.iso"
+    image_path = filesystem_folder_path / "basic_system.img"
     make_image(filesystem_boot_folder_path,
                filesystem_root_folder_path, image_path)
+
+    # Create QEMU launcher script
+    make_qemu_launcher(filesystem_folder_path, image_path)
+
+
+def main():
+    """
+    Entry point
+    """
+    parser = argparse.ArgumentParser(
+        description='Build simple distro')
+    parser.add_argument('--workspace', type=str, default="workspace")
+    parser.add_argument('--skip-build-boot',
+                        action='store_true')
+    parser.add_argument('--skip-build-rootfs',
+                        action='store_true')
+    args = parser.parse_args()
+
+    # Create workspace folder
+    workspace_name = args.workspace
+    skip_build_boot_partition = args.skip_build_boot
+    skip_build_userspace = args.skip_build_rootfs
+
+    build_system(
+        workspace_name=workspace_name,
+        skip_build_boot_partition=skip_build_boot_partition,
+        skip_build_userspace=skip_build_userspace
+    )
 
 
 if __name__ == "__main__":
