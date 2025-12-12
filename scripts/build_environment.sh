@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd $SCRIPT_DIR
+
 # Find docker or podman
 if command -v docker &> /dev/null; then
     echo "Using Docker"

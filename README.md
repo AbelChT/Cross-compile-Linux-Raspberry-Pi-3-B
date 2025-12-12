@@ -29,5 +29,5 @@ This Python script will do the following:
 - Build src/init.cpp
 - Assemble a disk image with the distro
 
-The disk image will be located in **workspace_\<timestamp\>/filesystem/basic_system.iso**.
+The disk image will be located in **workspace/filesystem/basic_system.iso**.
 This image can be copied to the Raspberry Pi SDCard using the Raspberry Pi Imager tool.
