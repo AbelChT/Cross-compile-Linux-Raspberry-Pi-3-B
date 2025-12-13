@@ -10,24 +10,41 @@ import shutil
 GCC_ARM_BARE_METAL_PATH = os.environ['GCC_ARM_BARE_METAL_PATH']
 GCC_ARM_LINUX_PATH = os.environ['GCC_ARM_LINUX_PATH']
 
+# Dependencies
+GIT_DEPENDENCIES = {
+    "kernel": {
+        "repo": "https://github.com/raspberrypi/linux",
+        "branch": "rpi-5.4.y"
+    },
+    "bootloader": {
+        "repo": "https://github.com/raspberrypi/rpi-firmware",
+        "branch": "stable"
+    }
+}
 
-def clone_kernel(build_path: Path) -> Path:
-    """
-    Clone kernel. Return path to the kernel
-    """
-    logging.info("Clone kernel ...")
+#
+# Download dependencies
+#
 
-    # Kernel path
-    kernel_path = build_path / "linux"
+def download_dependencies(dependencies_output_dir: Path):
+    """Clone all repositories listed in dependencies."""
+    for repo_name, repo_info in GIT_DEPENDENCIES.items():
+        repo_url = repo_info['repo']
+        branch = repo_info['branch']
 
-    # Clone kernel
-    subprocess.run(["git", "clone", "--depth", "1", "-b", "rpi-5.4.y",
-                   "https://github.com/raspberrypi/linux", kernel_path], check=True, text=True)
+        clone_path = dependencies_output_dir / repo_name
 
-    return kernel_path
+        assert (not clone_path.exists())
 
+        print(f"Cloning {repo_name} from {repo_url}...")
+        subprocess.run(['git', 'clone', '--depth', '1', repo_url,
+                       clone_path, '--branch', branch], check=True)
 
-def build_kernel(kernel_path: Path, filesystem_boot_path: Path):
+#
+# Build steps
+#
+
+def build_kernel(kernel_path: Path, output_path: Path, filesystem_boot_path: Path):
     """
     Compile kernel
     """
@@ -37,19 +54,19 @@ def build_kernel(kernel_path: Path, filesystem_boot_path: Path):
     cross_compiler = os.path.join(GCC_ARM_BARE_METAL_PATH, "aarch64-none-elf-")
 
     # Clean kernel tree
-    subprocess.run(["make", "-j", str(os.cpu_count()), "ARCH=arm64",
+    subprocess.run(["make", f"O={output_path}", "-j", str(os.cpu_count()), "ARCH=arm64",
                    f"CROSS_COMPILE={cross_compiler}", "mrproper", "-C", kernel_path], check=True, text=True)
 
     # Configure the kernel with specific RPi 3 configuration
-    subprocess.run(["make", "-j", str(os.cpu_count()), "ARCH=arm64",
+    subprocess.run(["make", f"O={output_path}", "-j", str(os.cpu_count()), "ARCH=arm64",
                    f"CROSS_COMPILE={cross_compiler}", "bcmrpi3_defconfig", "-C", kernel_path], check=True, text=True)
 
     # Compile kernel generating the kernel image, the modules and the device trees
-    subprocess.run(["make", "-j", str(os.cpu_count()), "ARCH=arm64",
+    subprocess.run(["make", f"O={output_path}", "-j", str(os.cpu_count()), "ARCH=arm64",
                    f"CROSS_COMPILE={cross_compiler}", "Image", "modules", "dtbs", "-C", kernel_path], check=True, text=True)
 
     # Copy the device trees to the temporal file system
-    subprocess.run(["make", "-j", str(os.cpu_count()), "ARCH=arm64",
+    subprocess.run(["make", f"O={output_path}", "-j", str(os.cpu_count()), "ARCH=arm64",
                    f"CROSS_COMPILE={cross_compiler}", f"INSTALL_MOD_PATH={filesystem_boot_path}", "modules_install", "-C", kernel_path], check=True, text=True)
 
 
@@ -232,8 +249,19 @@ def build_system(workspace_name: str, skip_build_boot_partition: bool, skip_buil
 
     logging.info("Current workspace name: %s", workspace_name)
     current_file_dir = Path(__file__).parent.absolute()
-    workspace_folder_path = current_file_dir / ".." / workspace_name
-    os.makedirs(workspace_folder_path, exist_ok=True)
+    workspace_folder_path = current_file_dir.parent / workspace_name
+
+    # Download dependencies if not present
+    dependencies_folder_path = workspace_folder_path / "dependencies"
+    if not dependencies_folder_path.exists():
+        dependencies_folder_path.mkdir(parents=True)
+        download_dependencies(dependencies_folder_path)
+    else:
+        logging.info(
+            "Dependencies folder %s already exists. Skipping download.", dependencies_folder_path)
+
+    kernel_source_path = dependencies_folder_path / "kernel"
+    bootloader_source_path = dependencies_folder_path / "bootloader"
 
     # Create workspace/build folder
     build_folder_path = workspace_folder_path / "build"
@@ -254,21 +282,22 @@ def build_system(workspace_name: str, skip_build_boot_partition: bool, skip_buil
 
     if not skip_build_boot_partition:
         # Build kernel
-        kernel_path = clone_kernel(build_folder_path)
-        build_kernel(kernel_path, filesystem_root_folder_path)
-        copy_kernel_to_filesystem(kernel_path, filesystem_boot_folder_path)
+        kernel_output_path = workspace_folder_path / "build" / "kernel"
+        build_kernel(kernel_source_path, kernel_output_path,
+                     filesystem_root_folder_path)
+        copy_kernel_to_filesystem(
+            kernel_output_path, filesystem_boot_folder_path)
 
         # Copy bootloader
-        bootloader_path = clone_bootleader(source_folder_path)
         copy_bootloader_to_filesystem(
-            bootloader_path, filesystem_boot_folder_path)
+            bootloader_source_path, filesystem_boot_folder_path)
 
         # Copy boot configuration
         copy_configuration_to_filesystem(filesystem_boot_folder_path)
 
     if not skip_build_userspace:
         # Build simple init
-        src_dir = current_file_dir / ".." / "src"
+        src_dir = current_file_dir.parent / "src"
         build_simple_init_and_copy_to_filesystem(
             filesystem_root_folder_path, src_dir)
 
